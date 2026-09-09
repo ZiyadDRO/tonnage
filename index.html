@@ -332,8 +332,40 @@ select.exsel{width:100%; height:40px; padding:0 34px 0 12px; border-radius:9px; 
 .steps li{counter-increment:s; display:flex; gap:10px; font-size:13px; color:var(--ink-2)}
 .steps li::before{content:counter(s); flex:none; width:20px; height:20px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600; display:grid; place-items:center; margin-top:1px}
 .note{font-size:11.5px; color:var(--muted); line-height:1.5; margin:8px 0 0}
-.toast{position:fixed; z-index:60; bottom:96px; left:50%; transform:translate(-50%,14px); background:var(--ink); color:var(--bg); font-size:13px; font-weight:600; padding:10px 16px; border-radius:999px; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s}
+.toast{position:fixed; z-index:60; bottom:96px; left:50%; transform:translate(-50%,14px); background:var(--ink); color:var(--bg); font-size:13px; font-weight:600; padding:10px 16px; border-radius:999px; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; max-width:min(400px,88%); text-align:center; line-height:1.35}
 .toast.on{opacity:1; transform:translate(-50%,0)}
+
+/* ── Sync ───────────────────────────────────────────────────────────── */
+.topright{display:flex; align-items:center; gap:9px}
+.syncdot{width:26px; height:26px; border-radius:999px; display:grid; place-items:center; flex:none}
+.syncdot::after{content:""; width:8px; height:8px; border-radius:999px; background:var(--muted)}
+.syncdot.ok::after{background:var(--green)}
+.syncdot.busy::after{background:var(--accent); animation:pulse 1.1s ease-in-out infinite}
+.syncdot.err::after{background:var(--red)}
+.syncdot.conflict::after{background:var(--gold)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.28}}
+@media (prefers-reduced-motion: reduce){ .syncdot.busy::after{animation:none} }
+
+.syncbar{display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:11px; border:1px solid var(--line); background:var(--panel)}
+.syncbar .sd{width:9px; height:9px; border-radius:999px; background:var(--muted); flex:none}
+.syncbar.ok .sd{background:var(--green)} .syncbar.busy .sd{background:var(--accent)}
+.syncbar.err .sd{background:var(--red)} .syncbar.conflict .sd{background:var(--gold)}
+.syncbar .st{flex:1; min-width:0}
+.syncbar .st b{display:block; font-size:13.5px; font-weight:600}
+.syncbar .st span{display:block; font-size:11.5px; color:var(--muted); margin-top:1px; overflow-wrap:anywhere}
+.syncbar.err .st b{color:var(--red)} .syncbar.conflict .st b{color:var(--gold)}
+
+.field{display:block; margin-bottom:12px}
+.field .lab{display:block; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:5px}
+.field .hint{display:block; font-size:11.5px; color:var(--muted); margin-top:5px; line-height:1.45}
+.field input{width:100%; height:44px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:var(--sunken); font-size:16px; font-family:"IBM Plex Mono",monospace}
+.field input:focus{outline:none; border-color:var(--accent); background:var(--panel); box-shadow:0 0 0 3px var(--accent-soft)}
+.callout{padding:11px 12px; border-radius:10px; background:var(--accent-soft); border:1px solid var(--accent-line); font-size:12px; line-height:1.5; color:var(--ink-2); margin-bottom:14px}
+.callout.warn{background:var(--gold-soft); border-color:var(--gold-line)}
+.callout b{color:var(--ink)}
+.conflict-opt{width:100%; text-align:left; padding:13px; border-radius:11px; border:1px solid var(--line); background:var(--panel); margin-bottom:9px}
+.conflict-opt b{display:block; font-size:14px; font-weight:700; margin-bottom:3px}
+.conflict-opt span{display:block; font-size:12px; color:var(--muted); font-family:"IBM Plex Mono",monospace}
 </style>
 <style>
   html{background:var(--surround)}
@@ -347,7 +379,10 @@ select.exsel{width:100%; height:40px; padding:0 34px 0 12px; border-radius:9px; 
   <header class="topbar">
     <div class="topbar-inner">
       <div class="wordmark">TONNAGE<span class="dot">.</span></div>
-      <div class="view-label" id="viewLabel">Log</div>
+      <div class="topright">
+        <button class="syncdot" id="syncDot" data-act="gotodata" hidden aria-label="Sync status"></button>
+        <div class="view-label" id="viewLabel">Log</div>
+      </div>
     </div>
   </header>
   <main id="main">
@@ -435,9 +470,11 @@ function load(){
   } catch(e){}
   return null;
 }
-function save(){
+function save(touch){
+  if (touch !== false || S.updatedAt == null) S.updatedAt = Date.now();
   try { localStorage.setItem(LS, JSON.stringify(S)); }
   catch(e){ mem = S; }
+  if (touch !== false) schedulePush();
 }
 
 function groupOf(name){ return (S.custom && S.custom[name]) || CATALOG[name] || "Other"; }
@@ -605,12 +642,196 @@ function buildDemo(){
   return st;
 }
 
+/* ═════ GitHub sync ═══════════════════════════════════════════════════
+   The log lives in localStorage first — instant, offline, no network on the
+   critical path. A copy is committed to a PRIVATE GitHub repo a few seconds
+   after each change, so every save is a version you can roll back to.
+   The token is kept under its own key so it never rides along in a backup. */
+const LS_SYNC = "tonnage.sync";
+let SY = null;
+let syncState = "off", syncMsg = "", pushTimer = null, pendingRemote = null, lastOpenSync = 0;
+
+function loadSync(){ try { const r = localStorage.getItem(LS_SYNC); if (r) return JSON.parse(r); } catch(e){} return null; }
+function saveSync(){ try { SY ? localStorage.setItem(LS_SYNC, JSON.stringify(SY)) : localStorage.removeItem(LS_SYNC); } catch(e){} }
+const syncOn = () => !!(SY && SY.token && SY.owner && SY.repo);
+
+function b64enc(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = ""; const CH = 0x8000;
+  for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CH));
+  return btoa(bin);
+}
+function b64dec(b64){
+  const bin = atob(String(b64).replace(/\s/g, ""));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+function ghHeaders(token){
+  return { "Authorization":"Bearer "+(token||SY.token), "Accept":"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28" };
+}
+function ghPath(){ return String(SY.path||"tonnage.json").split("/").filter(Boolean).map(encodeURIComponent).join("/"); }
+function ghUrl(){ return `https://api.github.com/repos/${encodeURIComponent(SY.owner)}/${encodeURIComponent(SY.repo)}/contents/${ghPath()}`; }
+function ghErr(r){
+  const m = r.status === 401 ? "Token rejected — check you pasted the whole thing"
+    : r.status === 403 ? "Token can't write to that repo (it needs Contents: Read and write)"
+    : r.status === 404 ? "Repo not found, or the token isn't scoped to it"
+    : "GitHub returned " + r.status;
+  const e = new Error(m); e.status = r.status; return e;
+}
+function netErr(e){
+  if (!navigator.onLine) return "Offline — it'll sync when you're back";
+  if (e instanceof TypeError) return "Couldn't reach GitHub. If this is the claude.ai preview, sync only works on your own hosted copy.";
+  return e.message || "Sync failed";
+}
+
+async function ghGetFile(){
+  const r = await fetch(ghUrl() + "?ref=" + encodeURIComponent(SY.branch||"main") + "&_=" + Date.now(),
+    { headers: ghHeaders(), cache:"no-store" });
+  if (r.status === 404) return null;
+  if (!r.ok) throw ghErr(r);
+  const j = await r.json();
+  return { sha:j.sha, data: JSON.parse(b64dec(j.content)) };
+}
+async function ghPutFile(obj, sha, msg){
+  const body = { message: msg, content: b64enc(JSON.stringify(obj, null, 2)), branch: SY.branch || "main" };
+  if (sha) body.sha = sha;
+  const r = await fetch(ghUrl(), { method:"PUT", headers:{ ...ghHeaders(), "Content-Type":"application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw ghErr(r);
+  return (await r.json()).content.sha;
+}
+
+function ago(t){
+  const s = Math.max(0, Math.round((Date.now()-t)/1000));
+  if (s < 45) return "just now";
+  const m = Math.round(s/60); if (m < 60) return m + (m===1?" min ago":" min ago");
+  const h = Math.round(m/60); if (h < 24) return h + (h===1?" hr ago":" hrs ago");
+  const d = Math.round(h/24); return d + (d===1?" day ago":" days ago");
+}
+function syncLabel(){
+  if (!syncOn()) return "Not connected";
+  if (syncState === "busy") return "Syncing…";
+  if (syncState === "err") return syncMsg;
+  if (syncState === "conflict") return "Two versions differ — pick one below";
+  if (SY.lastSyncedAt) return "Backed up " + ago(SY.lastSyncedAt);
+  return "Not backed up yet";
+}
+function syncHeadline(){
+  if (!syncOn()) return "Backup to GitHub is off";
+  if (syncState === "err") return "Backup failed";
+  if (syncState === "conflict") return "Two versions of your log";
+  if (syncState === "busy") return "Backing up…";
+  return SY.owner + "/" + SY.repo;
+}
+function setSync(state, msg){
+  syncState = state; syncMsg = msg || "";
+  const d = $("syncDot");
+  if (d) {
+    d.hidden = !syncOn();
+    d.className = "syncdot " + state;
+    d.setAttribute("aria-label", "Backup: " + syncLabel());
+    d.title = syncLabel();
+  }
+  if (tab === "data") renderData();
+}
+
+function schedulePush(){
+  if (!syncOn() || S.demo) return;
+  clearTimeout(pushTimer);
+  setSync("busy");
+  pushTimer = setTimeout(() => doPush("update"), 4000);
+}
+async function doPush(reason){
+  if (!syncOn() || S.demo) return;
+  clearTimeout(pushTimer);
+  setSync("busy");
+  const stamp = new Date().toISOString().slice(0,16).replace("T", " ");
+  try {
+    let sha = SY.sha;
+    try {
+      sha = await ghPutFile(S, sha, `Tonnage: ${reason} · ${stamp}`);
+    } catch(e){
+      if (e.status === 409 || e.status === 422) {           // our sha went stale
+        const cur = await ghGetFile();
+        sha = await ghPutFile(S, cur ? cur.sha : null, `Tonnage: ${reason} (retry) · ${stamp}`);
+      } else throw e;
+    }
+    SY.sha = sha; SY.lastSyncedAt = Date.now(); SY.lastAt = S.updatedAt; saveSync();
+    setSync("ok");
+  } catch(e){ setSync("err", netErr(e)); }
+}
+
+function summarize(st){
+  let sets = 0, days = 0;
+  for (const k of Object.keys((st && st.days) || {})) {
+    let n = 0;
+    for (const ex of (st.days[k].ex || [])) n += (ex.sets||[]).filter(s => s.w>0 && s.r>0).length;
+    if (n) { days++; sets += n; }
+  }
+  return { days, sets, at: st && st.updatedAt };
+}
+function adoptRemote(remote, quiet){
+  S = remote.data;
+  if (!S.custom) S.custom = {};
+  if (!S.units) S.units = "lb";
+  try { localStorage.setItem(LS, JSON.stringify(S)); } catch(e){}
+  SY.sha = remote.sha; SY.lastSyncedAt = Date.now(); SY.lastAt = S.updatedAt; saveSync();
+  calSel = null; statWeek = null; statEx = null;
+  logDate = todayKey();
+  computePRs(); render(); setSync("ok");
+  if (!quiet) toast("Pulled the newer log from GitHub");
+}
+
+/* Decides pull vs push vs ask, using the updatedAt we last synced as the
+   common ancestor. Only when BOTH sides moved since then do we interrupt. */
+async function syncOpen(){
+  if (!syncOn()) return;
+  setSync("busy");
+  try {
+    const remote = await ghGetFile();
+    if (!remote) { await doPush("first upload"); return; }
+    SY.sha = remote.sha;
+    const rAt = remote.data.updatedAt || 0, lAt = S.updatedAt || 0, base = SY.lastAt || 0;
+    if (S.demo) { adoptRemote(remote); return; }
+    if (rAt === lAt) { SY.lastSyncedAt = Date.now(); SY.lastAt = lAt; saveSync(); setSync("ok"); return; }
+    if (lAt <= base && rAt > base) { adoptRemote(remote); return; }
+    if (rAt <= base && lAt > base) { await doPush("catch up"); return; }
+    pendingRemote = remote; setSync("conflict"); showConflict(remote);
+  } catch(e){ setSync("err", netErr(e)); }
+}
+
+function showConflict(remote){
+  const L = summarize(S), R = summarize(remote.data);
+  const when = a => a ? new Date(a).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}) : "unknown";
+  openSheet("Two versions of your log", `
+    <div class="callout warn">This device and GitHub both changed since the last backup, so one of them has work the other doesn't. Pick the one to keep — the other stays in the repo's commit history either way, so nothing is destroyed.</div>
+    <button class="conflict-opt" data-act="conf-local"><b>Keep this device's copy</b>
+      <span>${L.days} days · ${L.sets} sets · edited ${when(L.at)}</span></button>
+    <button class="conflict-opt" data-act="conf-remote"><b>Use the copy on GitHub</b>
+      <span>${R.days} days · ${R.sets} sets · edited ${when(R.at)}</span></button>`);
+}
+
+async function connectSync(owner, repo, path, token){
+  setSync("busy");
+  const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`, { headers: ghHeaders(token) });
+  if (!r.ok) throw ghErr(r);
+  const info = await r.json();
+  if (info.private === false) {
+    const e = new Error("That repo is public — anyone could read your training log. Make it private (Settings → General → Danger Zone → Change visibility), then connect.");
+    e.status = 0; throw e;
+  }
+  SY = { owner, repo, path: path || "tonnage.json", branch: info.default_branch || "main", token, sha:null, lastSyncedAt:null, lastAt:null };
+  saveSync();
+  await syncOpen();
+}
+
 /* ═════ Boot ══════════════════════════════════════════════════════════ */
+SY = loadSync();
 S = load() || buildDemo();
 if (!S.custom) S.custom = {};
 if (!S.units) S.units = "lb";
 computePRs();
-save();
+save(false);
 
 let tab = "log";
 let logDate = todayKey();
@@ -1004,14 +1225,33 @@ let confirmArmed = null;
 function renderData(){
   const nDays = Object.keys(S.days).length;
   const nSets = Object.keys(S.days).reduce((a,k)=>a+daySets(k), 0);
+  const keepRestore = ($("restoreBox") && $("restoreBox").value) || "";
   let h = `<div class="pad" style="padding-top:16px">`;
 
-  h += `<div class="eyebrow" style="margin-bottom:9px">Units</div>
+  h += `<div class="eyebrow" style="margin-bottom:9px">Backup to GitHub</div>`;
+  if (!syncOn()) {
+    h += `<div class="syncbar off"><span class="sd"></span><span class="st"><b>Not connected</b>
+        <span>Right now your log exists in this browser and nowhere else.</span></span></div>
+      <button class="btn primary wide" data-act="connect-open" style="margin-top:9px">Connect a private repo</button>
+      <p class="note">Commits your log to a private GitHub repo seconds after each change. Every save becomes a version you can roll back to, and your phone and Mac stay in step.</p>`;
+  } else {
+    h += `<div class="syncbar ${syncState}"><span class="sd"></span><span class="st"><b>${esc(syncHeadline())}</b>
+        <span>${esc(syncLabel())}</span></span></div>
+      <div style="display:flex; gap:8px; margin-top:9px">
+        <button class="btn" style="flex:1" data-act="syncnow">Back up now</button>
+        <button class="btn danger" data-act="disconnect">${confirmArmed === "disc" ? "Tap again" : "Disconnect"}</button>
+      </div>`;
+    h += S.demo
+      ? `<p class="note" style="color:var(--gold)">Sample data is never uploaded. Clear it below and your real log starts backing up.</p>`
+      : `<p class="note">Saved to <b>${esc(SY.path)}</b> in ${esc(SY.owner)}/${esc(SY.repo)}. The token stays on this device and is never part of a copied backup.</p>`;
+  }
+
+  h += `<div class="sec"><div class="eyebrow" style="margin-bottom:9px">Units</div>
     <div class="seg" role="group">
       <button data-act="units" data-u="lb" aria-pressed="${U()==="lb"}">Pounds</button>
       <button data-act="units" data-u="kg" aria-pressed="${U()==="kg"}">Kilograms</button>
     </div>
-    <p class="note">Changes the label only. Numbers you already entered stay exactly as you typed them.</p>`;
+    <p class="note">Changes the label only. Numbers you already entered stay exactly as you typed them.</p></div>`;
 
   h += `<div class="sec">
     <div class="sec-head"><div class="sec-title">Put it on your home screen</div></div>
@@ -1021,11 +1261,13 @@ function renderData(){
         <li>Tap the Share button (the square with the arrow).</li>
         <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
       </ol>
-      <p class="note">Your log is stored in this browser on this device. Same phone, same browser, and it's there — including offline.</p>
+      <p class="note">${syncOn()
+        ? "Your log is kept in this browser for instant, offline use, and mirrored to GitHub so losing the phone doesn't lose the log."
+        : "Your log is stored in this browser on this device only — deleting the icon deletes it. Connect a repo above and that stops being true."}</p>
     </div></div>`;
 
   h += `<div class="sec">
-    <div class="sec-head"><div class="sec-title">Backup</div><div class="eyebrow">${nDays} days · ${nSets} sets</div></div>
+    <div class="sec-head"><div class="sec-title">Manual copy</div><div class="eyebrow">${nDays} days · ${nSets} sets</div></div>
     <div class="card" style="padding:4px 13px">
       <div class="rowitem"><div class="t"><b>Copy backup</b><span>Puts your whole log on the clipboard as JSON. Paste it somewhere safe — Notes, an email to yourself, a file.</span></div>
         <button class="btn" data-act="copy">Copy</button></div>
@@ -1040,13 +1282,30 @@ function renderData(){
     <div class="card" style="padding:4px 13px">`;
   if (S.demo) h += `<div class="rowitem"><div class="t"><b>Clear the sample data</b><span>Wipes the nine demo weeks and leaves you an empty log.</span></div>
       <button class="btn" data-act="wipe-demo">Start fresh</button></div>`;
-  h += `<div class="rowitem"><div class="t"><b>Delete everything</b><span>Every day, set and record. There is no undo, so copy a backup first.</span></div>
+  h += `<div class="rowitem"><div class="t"><b>Delete everything</b><span>Every day, set and record.${syncOn() ? " This pushes the empty log to GitHub too — but the repo keeps every earlier commit, so you can still recover from its history." : " There is no undo, so copy a backup first."}</span></div>
       <button class="btn danger" data-act="wipe-all">${confirmArmed === "wipe-all" ? "Tap again" : "Delete"}</button></div>
     </div></div>`;
 
   h += `<p class="note" style="margin:22px 0 8px; text-align:center">Tonnage · records judged against what was true before them, not your all-time best.</p>`;
   h += `</div>`;
   $("v-data").innerHTML = h;
+  if (keepRestore && $("restoreBox")) $("restoreBox").value = keepRestore;
+}
+
+function openConnect(){
+  const s = SY || {};
+  openSheet("Connect GitHub", `
+    <div class="callout"><b>First, make the repo.</b> On GitHub create a <b>second</b> repository named <b>tonnage-data</b>, set it to <b>Private</b>, and tick “Add a README file”. Keep it separate from the public repo hosting the app.</div>
+    <label class="field"><span class="lab">Repository</span>
+      <input id="cfRepo" type="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="yourname/tonnage-data" value="${s.owner ? esc(s.owner + "/" + s.repo) : ""}">
+      <span class="hint">Owner and name, exactly as they appear in the GitHub URL.</span></label>
+    <label class="field"><span class="lab">Access token</span>
+      <input id="cfToken" type="password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="github_pat_…" value="${s.token ? esc(s.token) : ""}">
+      <span class="hint">GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token. Grant it access to <b>only</b> tonnage-data, then under Repository permissions set <b>Contents: Read and write</b>.</span></label>
+    <label class="field"><span class="lab">File name</span>
+      <input id="cfPath" type="text" autocapitalize="none" autocorrect="off" spellcheck="false" value="${esc(s.path || "tonnage.json")}"></label>
+    <button class="btn primary wide" data-act="connect">Connect and back up now</button>
+    <p class="note">The token never leaves this device except to talk to GitHub. Scoped to one private repo, the worst case if someone gets your unlocked phone is that they can edit your workout log — nothing else in your account.</p>`);
 }
 
 /* ═════ Render ════════════════════════════════════════════════════════ */
@@ -1153,6 +1412,43 @@ document.addEventListener("click", e => {
 
   if (a === "units") { S.units = el.dataset.u; save(); render(); return; }
 
+  if (a === "gotodata") { go("data"); return; }
+  if (a === "connect-open") { openConnect(); return; }
+  if (a === "syncnow") { lastOpenSync = Date.now(); syncOpen(); return; }
+
+  if (a === "connect") {
+    const repoRaw = ($("cfRepo").value || "").trim()
+      .replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/i, "").replace(/\/+$/, "");
+    const parts = repoRaw.split("/").filter(Boolean);
+    const token = ($("cfToken").value || "").trim();
+    const path = ($("cfPath").value || "").trim() || "tonnage.json";
+    if (parts.length !== 2) { toast("Repository should look like yourname/tonnage-data"); return; }
+    if (!token) { toast("Paste your access token"); return; }
+    el.disabled = true; el.textContent = "Connecting…";
+    connectSync(parts[0], parts[1], path, token)
+      .then(() => { closeSheet(); go("data"); toast("Connected — your log is on GitHub"); })
+      .catch(err => {
+        setSync("err", netErr(err));
+        el.disabled = false; el.textContent = "Connect and back up now";
+        toast(netErr(err));
+      });
+    return;
+  }
+
+  if (a === "disconnect") {
+    if (confirmArmed !== "disc") {
+      confirmArmed = "disc"; renderData();
+      setTimeout(() => { if (confirmArmed === "disc") { confirmArmed = null; if (tab === "data") renderData(); } }, 4000);
+      return;
+    }
+    confirmArmed = null; SY = null; saveSync(); setSync("off"); renderData();
+    toast("Disconnected. The copy on GitHub is untouched.");
+    return;
+  }
+
+  if (a === "conf-local") { closeSheet(); pendingRemote = null; doPush("kept the device copy"); toast("Keeping this device's log"); return; }
+  if (a === "conf-remote") { closeSheet(); if (pendingRemote) adoptRemote(pendingRemote, true); pendingRemote = null; toast("Using the GitHub copy"); return; }
+
   if (a === "copy") {
     const json = JSON.stringify(S, null, 2);
     const done = () => toast("Backup copied");
@@ -1223,6 +1519,18 @@ document.addEventListener("pointerdown", e => {
 
 /* ═════ Go ════════════════════════════════════════════════════════════ */
 render();
+setSync(syncOn() ? "idle" : "off");
+if (syncOn()) { lastOpenSync = Date.now(); syncOpen(); }
+
+document.addEventListener("visibilitychange", () => {
+  if (!syncOn()) return;
+  if (document.visibilityState === "visible") {
+    if (Date.now() - lastOpenSync > 20000) { lastOpenSync = Date.now(); syncOpen(); }
+  } else if (pushTimer) {
+    doPush("update");           // flush the pending edit before iOS suspends us
+  }
+});
+window.addEventListener("online", () => { if (syncOn() && syncState === "err") doPush("back online"); });
 </script>
 <script>
 if ("serviceWorker" in navigator) {
