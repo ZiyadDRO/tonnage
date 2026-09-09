@@ -1,0 +1,1235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="description" content="A strength-training log: sets, reps and RPE, weekly volume, PRs and deloads on a calendar.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tonnage">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F3F4F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131519" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+<title>Tonnage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+/* ── Tokens ───────────────────────────────────────────────────────────
+   Accents are the IWF competition plate colours: 20kg blue, brass gold
+   for records, 10kg green for deload/recovery, 25kg red for destructive. */
+:root{
+  --bg:#F3F4F7; --surround:#E5E8EE;
+  --panel:#FFFFFF; --panel-2:#EDEFF4; --sunken:#E9ECF2;
+  --line:#D8DCE5; --line-soft:#E6E9F0;
+  --ink:#15181D; --ink-2:#3C434F; --muted:#5C6472;
+  --accent:#1D5DB1; --accent-soft:#DFE8F7; --accent-line:#B9CDEC; --on-accent:#FFFFFF;
+  --gold:#976600; --gold-soft:#F7EED6; --gold-line:#E4CE92;
+  --green:#2C7C45; --green-soft:#DFEEE3; --green-line:#A9CFB4;
+  --red:#C0142F; --red-soft:#F9E2E5;
+  --fill-1:#E3EAF7; --fill-2:#C2D5F0; --fill-3:#8EB3E4; --fill-4:#3F76C4; --fill-4-ink:#FFFFFF;
+  --shadow:0 1px 2px rgba(21,24,29,.06), 0 6px 18px rgba(21,24,29,.05);
+  --sheet-shadow:0 -8px 40px rgba(21,24,29,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#131519; --surround:#0C0E11;
+    --panel:#1B1E24; --panel-2:#23272F; --sunken:#101317;
+    --line:#2E333C; --line-soft:#22262D;
+    --ink:#EEF1F6; --ink-2:#C3CAD6; --muted:#8E97A6;
+    --accent:#74AAF7; --accent-soft:#1B2A40; --accent-line:#31527D; --on-accent:#0B1220;
+    --gold:#E6B93F; --gold-soft:#332912; --gold-line:#5C4A1C;
+    --green:#57C97E; --green-soft:#152D1E; --green-line:#2A5439;
+    --red:#F0768C; --red-soft:#331A20;
+    --fill-1:#1B2635; --fill-2:#22364E; --fill-3:#2E4D74; --fill-4:#4A7CBC; --fill-4-ink:#F2F7FF;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+    --sheet-shadow:0 -8px 40px rgba(0,0,0,.55);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131519; --surround:#0C0E11;
+  --panel:#1B1E24; --panel-2:#23272F; --sunken:#101317;
+  --line:#2E333C; --line-soft:#22262D;
+  --ink:#EEF1F6; --ink-2:#C3CAD6; --muted:#8E97A6;
+  --accent:#74AAF7; --accent-soft:#1B2A40; --accent-line:#31527D; --on-accent:#0B1220;
+  --gold:#E6B93F; --gold-soft:#332912; --gold-line:#5C4A1C;
+  --green:#57C97E; --green-soft:#152D1E; --green-line:#2A5439;
+  --red:#F0768C; --red-soft:#331A20;
+  --fill-1:#1B2635; --fill-2:#22364E; --fill-3:#2E4D74; --fill-4:#4A7CBC; --fill-4-ink:#F2F7FF;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+  --sheet-shadow:0 -8px 40px rgba(0,0,0,.55);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--surround); color:var(--ink);
+  font-family:"Public Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size:15px; line-height:1.45;
+  -webkit-text-size-adjust:100%; -webkit-tap-highlight-color:transparent;
+}
+button,input,select,textarea{font:inherit; color:inherit}
+button{cursor:pointer; background:none; border:0; padding:0}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px}
+
+.mono{font-family:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric:tabular-nums}
+.disp{font-family:"Archivo", ui-sans-serif, system-ui, sans-serif; font-weight:700; letter-spacing:-.02em}
+
+/* ── Shell ──────────────────────────────────────────────────────────── */
+#app{
+  position:relative; width:100%; max-width:460px; margin:0 auto;
+  height:100dvh; background:var(--bg); overflow:hidden;
+  display:flex; flex-direction:column;
+}
+@media (min-width:520px){ #app{ border-left:1px solid var(--line); border-right:1px solid var(--line); } }
+
+.topbar{
+  position:sticky; top:0; z-index:30; background:var(--bg);
+  border-bottom:1px solid var(--line-soft);
+}
+.topbar-inner{display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:14px 16px 10px}
+.wordmark{font-family:"Archivo",sans-serif; font-weight:800; font-size:19px; letter-spacing:-.035em}
+.wordmark .dot{color:var(--accent)}
+.view-label{font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+
+main{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:108px}
+.pad{padding:0 16px}
+.view{display:none}
+.view.on{display:block}
+
+/* ── Tab bar ────────────────────────────────────────────────────────── */
+.tabbar{
+  position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+  width:min(460px,100%); z-index:40;
+  display:grid; grid-template-columns:repeat(4,1fr);
+  background:var(--panel); border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.tab{display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 0 8px; color:var(--muted); font-size:10.5px; font-weight:600; letter-spacing:.04em}
+.tab svg{width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+.tab[aria-selected="true"]{color:var(--accent)}
+.tab[aria-selected="true"] svg{stroke-width:2.1}
+
+/* ── Common pieces ──────────────────────────────────────────────────── */
+.card{background:var(--panel); border:1px solid var(--line); border-radius:12px}
+.eyebrow{font-size:10.5px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+.sec{margin-top:26px}
+.sec-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:10px}
+.sec-title{font-family:"Archivo",sans-serif; font-weight:700; font-size:15px; letter-spacing:-.01em}
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  min-height:40px; padding:0 14px; border-radius:9px; font-size:14px; font-weight:600;
+  border:1px solid var(--line); background:var(--panel); color:var(--ink);
+}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--on-accent)}
+.btn.ghost{border-color:transparent; background:var(--panel-2)}
+.btn.danger{color:var(--red); border-color:var(--line)}
+.btn.wide{width:100%}
+.btn:active{transform:translateY(1px)}
+.btn.dashed{border-style:dashed; border-color:var(--line); color:var(--accent); background:transparent}
+
+.chip{display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 9px; border-radius:999px; font-size:11.5px; font-weight:600; background:var(--panel-2); color:var(--ink-2); border:1px solid transparent}
+.chip.gold{background:var(--gold-soft); color:var(--gold); border-color:var(--gold-line)}
+.chip.green{background:var(--green-soft); color:var(--green); border-color:var(--green-line)}
+.chip.blue{background:var(--accent-soft); color:var(--accent); border-color:var(--accent-line)}
+
+/* ── Banner ─────────────────────────────────────────────────────────── */
+.banner{display:flex; align-items:center; gap:10px; margin:12px 16px 0; padding:10px 12px; border-radius:10px; background:var(--gold-soft); border:1px solid var(--gold-line); color:var(--gold); font-size:12.5px; line-height:1.35}
+.banner b{font-weight:700}
+.banner button{margin-left:auto; flex:none; font-size:12px; font-weight:700; color:var(--gold); text-decoration:underline; text-underline-offset:2px; white-space:nowrap}
+
+/* ── Log view ───────────────────────────────────────────────────────── */
+.datenav{display:flex; align-items:center; gap:8px; padding:4px 16px 12px}
+.datenav .arrow{width:36px; height:36px; border-radius:9px; background:var(--panel); border:1px solid var(--line); display:grid; place-items:center; flex:none}
+.datenav .arrow svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.datenav .dwrap{flex:1; text-align:center; min-width:0}
+.datenav .dbig{font-family:"Archivo",sans-serif; font-weight:700; font-size:20px; letter-spacing:-.02em}
+.datenav .dsub{font-size:11px; color:var(--muted); font-weight:600; letter-spacing:.04em; text-transform:uppercase}
+
+.daystats{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; margin:0 16px; background:var(--line); border:1px solid var(--line); border-radius:11px; overflow:hidden}
+.daystats div{background:var(--panel); padding:9px 10px}
+.daystats .k{font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.daystats .v{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:17px; font-weight:600; letter-spacing:-.02em; margin-top:1px}
+.daystats .v small{font-size:10.5px; font-weight:500; color:var(--muted); letter-spacing:0}
+
+.deload-row{display:flex; align-items:center; gap:8px; padding:12px 16px 0}
+.toggle{display:flex; align-items:center; gap:9px; flex:1; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--panel)}
+.toggle .sw{width:38px; height:22px; border-radius:999px; background:var(--sunken); border:1px solid var(--line); position:relative; flex:none; transition:background .15s}
+.toggle .sw::after{content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:999px; background:var(--panel); box-shadow:0 1px 2px rgba(0,0,0,.25); transition:transform .15s}
+.toggle[aria-pressed="true"]{background:var(--green-soft); border-color:var(--green-line)}
+.toggle[aria-pressed="true"] .sw{background:var(--green); border-color:var(--green)}
+.toggle[aria-pressed="true"] .sw::after{transform:translateX(16px)}
+.toggle .tl{font-size:13.5px; font-weight:600; text-align:left}
+.toggle .tl em{display:block; font-style:normal; font-size:11px; font-weight:500; color:var(--muted)}
+.toggle[aria-pressed="true"] .tl{color:var(--green)}
+.toggle[aria-pressed="true"] .tl em{color:var(--green)}
+
+.exlist{display:flex; flex-direction:column; gap:12px; padding:16px}
+.excard{background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+.exhead{display:flex; align-items:flex-start; gap:8px; padding:11px 12px 9px}
+.exname{font-family:"Archivo",sans-serif; font-weight:700; font-size:15.5px; letter-spacing:-.015em; flex:1; min-width:0; text-wrap:balance}
+.exgroup{font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-top:2px}
+.exkill{width:30px; height:30px; border-radius:8px; display:grid; place-items:center; color:var(--muted); flex:none; background:var(--panel-2)}
+.exkill svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round}
+.exlast{margin:0 12px 9px; padding:6px 9px; border-radius:7px; background:var(--sunken); font-size:11.5px; color:var(--muted); display:flex; gap:6px; align-items:baseline}
+.exlast b{font-family:"IBM Plex Mono",monospace; font-weight:500; color:var(--ink-2)}
+
+.setgrid{display:grid; grid-template-columns:26px 1fr 1fr 62px 26px; gap:6px; align-items:center; padding:0 12px}
+.setgrid.head{padding-bottom:5px}
+.setgrid.head span{font-size:9.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.setgrid.head span.r{text-align:center}
+.setrow{padding-bottom:7px}
+.setno{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--muted); text-align:center; font-variant-numeric:tabular-nums}
+.inp{
+  width:100%; height:40px; padding:0 9px; border-radius:8px; text-align:center;
+  border:1px solid var(--line); background:var(--sunken); color:var(--ink);
+  font-family:"IBM Plex Mono",monospace; font-size:16px; font-weight:500; font-variant-numeric:tabular-nums;
+}
+.inp::placeholder{color:var(--muted); opacity:.7}
+.inp:focus{background:var(--panel); border-color:var(--accent); outline:none; box-shadow:0 0 0 3px var(--accent-soft)}
+select.inp{padding:0 4px; -webkit-appearance:none; appearance:none; text-align-last:center}
+.setkill{width:26px; height:26px; border-radius:7px; display:grid; place-items:center; color:var(--muted); font-size:17px; line-height:1}
+.prstar{display:grid; place-items:center; width:26px; height:26px; border-radius:7px; background:var(--gold-soft); color:var(--gold); border:1px solid var(--gold-line)}
+.prstar svg{width:13px;height:13px;fill:currentColor}
+.exfoot{display:flex; align-items:center; gap:8px; padding:4px 12px 11px}
+.addset{height:32px; padding:0 11px; border-radius:8px; border:1px dashed var(--line); color:var(--accent); font-size:12.5px; font-weight:700}
+.exvol{margin-left:auto; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums}
+
+.empty{margin:16px; padding:26px 18px; border-radius:12px; border:1px dashed var(--line); text-align:center; background:var(--panel)}
+.empty h3{font-family:"Archivo",sans-serif; font-size:16px; margin:0 0 5px; letter-spacing:-.015em}
+.empty p{margin:0 0 14px; font-size:13px; color:var(--muted); max-width:30ch; margin-inline:auto}
+.empty .row{display:flex; gap:8px; justify-content:center; flex-wrap:wrap}
+
+/* ── Calendar ───────────────────────────────────────────────────────── */
+.dowrow{display:grid; grid-template-columns:repeat(7,1fr); gap:5px; padding:8px 16px 9px; background:var(--bg); position:sticky; top:0; z-index:6}
+.dowrow span{text-align:center; font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--muted)}
+.mblock{padding:0 16px 22px}
+.mhead{display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:9px 0 9px; position:sticky; top:30px; z-index:5; background:var(--bg)}
+.mname{font-family:"Archivo",sans-serif; font-weight:700; font-size:15px; letter-spacing:-.015em}
+.mvol{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+.mgrid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px}
+.cell{position:relative; aspect-ratio:1/1; border-radius:9px; display:grid; place-items:center; background:var(--panel-2); color:var(--muted); font-family:"IBM Plex Mono",monospace; font-size:12.5px; font-weight:500; font-variant-numeric:tabular-nums; border:1px solid transparent}
+.cell.blank{background:transparent; border-color:transparent}
+.cell.lvl1{background:var(--fill-1); color:var(--ink-2)}
+.cell.lvl2{background:var(--fill-2); color:var(--ink)}
+.cell.lvl3{background:var(--fill-3); color:var(--ink)}
+.cell.lvl4{background:var(--fill-4); color:var(--fill-4-ink); font-weight:600}
+.cell.deload{background:var(--green-soft); border-color:var(--green-line); color:var(--green); font-weight:600}
+.cell.today{box-shadow:inset 0 0 0 2px var(--ink)}
+.cell.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+.cell.future{opacity:.4}
+.cell .pr{position:absolute; top:4px; right:4px; width:6px; height:6px; border-radius:999px; background:var(--gold); box-shadow:0 0 0 1.5px var(--panel)}
+.cell.lvl3 .pr,.cell.lvl4 .pr{box-shadow:0 0 0 1.5px rgba(255,255,255,.85)}
+
+.legend{display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:0 16px 4px; font-size:11px; color:var(--muted)}
+.legend .grp{display:flex; align-items:center; gap:5px}
+.legend .sw{width:12px; height:12px; border-radius:4px; display:inline-block}
+.legend .sw.dot{width:9px; height:9px; border-radius:999px}
+.legend .ramp{display:flex; gap:2px}
+.legend .ramp i{width:11px; height:12px; border-radius:3px; display:block}
+
+/* ── Sheet ──────────────────────────────────────────────────────────── */
+.scrim{position:fixed; inset:0; z-index:50; background:rgba(10,12,16,.42); opacity:0; pointer-events:none; transition:opacity .18s}
+.scrim.on{opacity:1; pointer-events:auto}
+.sheet{
+  position:fixed; z-index:51; bottom:0; left:50%; transform:translate(-50%,100%);
+  width:min(460px,100%); max-height:82dvh; display:flex; flex-direction:column;
+  background:var(--panel); border-top-left-radius:18px; border-top-right-radius:18px;
+  box-shadow:var(--sheet-shadow); transition:transform .22s cubic-bezier(.32,.72,0,1);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.sheet.on{transform:translate(-50%,0)}
+.sheet-grab{width:36px; height:4px; border-radius:999px; background:var(--line); margin:9px auto 3px; flex:none}
+.sheet-head{display:flex; align-items:baseline; gap:10px; padding:8px 16px 10px; border-bottom:1px solid var(--line-soft); flex:none}
+.sheet-title{font-family:"Archivo",sans-serif; font-weight:700; font-size:17px; letter-spacing:-.02em; flex:1; text-wrap:balance}
+.sheet-close{font-size:13px; font-weight:600; color:var(--accent); flex:none}
+.sheet-body{overflow-y:auto; padding:14px 16px 18px}
+@media (prefers-reduced-motion: reduce){ .sheet,.scrim{transition:none} }
+
+.searchwrap{padding:10px 16px; border-bottom:1px solid var(--line-soft); flex:none}
+.search{width:100%; height:42px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:var(--sunken); font-size:16px}
+.search:focus{outline:none; border-color:var(--accent); background:var(--panel); box-shadow:0 0 0 3px var(--accent-soft)}
+.pickgroup{font-size:10.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); padding:14px 0 6px}
+.pickgroup:first-child{padding-top:2px}
+.pickrow{display:flex; align-items:center; gap:10px; width:100%; padding:11px 2px; border-bottom:1px solid var(--line-soft); text-align:left}
+.pickrow .nm{flex:1; font-size:14.5px; font-weight:600}
+.pickrow .gp{font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
+.pickrow.create .nm{color:var(--accent)}
+
+/* ── Day detail ─────────────────────────────────────────────────────── */
+.dd-stats{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px}
+.dd-ex{padding:10px 0; border-top:1px solid var(--line-soft)}
+.dd-ex:first-of-type{border-top:0}
+.dd-exname{font-family:"Archivo",sans-serif; font-weight:700; font-size:14px; letter-spacing:-.01em; margin-bottom:5px}
+.dd-sets{display:flex; flex-wrap:wrap; gap:5px}
+.dd-set{font-family:"IBM Plex Mono",monospace; font-size:12px; padding:3px 7px; border-radius:6px; background:var(--sunken); color:var(--ink-2); font-variant-numeric:tabular-nums}
+.dd-set.pr{background:var(--gold-soft); color:var(--gold); border:1px solid var(--gold-line)}
+
+/* ── Stats ──────────────────────────────────────────────────────────── */
+.kpis{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.kpi{padding:12px 13px; border-radius:12px; background:var(--panel); border:1px solid var(--line)}
+.kpi .k{font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.kpi .v{font-family:"Archivo",sans-serif; font-weight:700; font-size:26px; letter-spacing:-.03em; line-height:1.1; margin-top:3px}
+.kpi .v small{font-family:"Public Sans",sans-serif; font-size:12px; font-weight:600; color:var(--muted); letter-spacing:0}
+.delta{display:inline-flex; align-items:center; gap:3px; font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500; margin-top:4px; font-variant-numeric:tabular-nums}
+.delta.up{color:var(--green)} .delta.down{color:var(--red)} .delta.flat{color:var(--muted)}
+
+.chartcard{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 12px 8px}
+.readout{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; min-height:22px; margin-bottom:6px}
+.readout .rw{font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.readout .rv{font-family:"IBM Plex Mono",monospace; font-size:13.5px; font-weight:600; font-variant-numeric:tabular-nums}
+.readout .rs{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+svg.chart{display:block; width:100%; height:auto; overflow:visible; touch-action:pan-y}
+svg.chart .grid{stroke:var(--line-soft); stroke-width:1}
+svg.chart .axl{fill:var(--muted); font-family:"IBM Plex Mono",monospace; font-size:9.5px}
+svg.chart .bar{fill:var(--fill-2)}
+svg.chart .bar.on{fill:var(--accent)}
+svg.chart .hit{fill:transparent}
+svg.chart .ln{fill:none; stroke:var(--accent); stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
+svg.chart .ar{fill:var(--accent); opacity:.12}
+svg.chart .pt{fill:var(--accent); stroke:var(--panel); stroke-width:2}
+svg.chart .lbl{fill:var(--ink); font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:600}
+svg.chart .dl{fill:var(--gold); stroke:var(--panel); stroke-width:1.5}
+
+.mg{display:flex; flex-direction:column; gap:9px}
+.mgrow{display:grid; grid-template-columns:1fr auto; gap:3px 10px; align-items:baseline}
+.mgrow .nm{font-size:12.5px; font-weight:600}
+.mgrow .vl{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+.mgrow .track{grid-column:1/-1; height:7px; border-radius:999px; background:var(--sunken); overflow:hidden}
+.mgrow .track i{display:block; height:100%; border-radius:999px; background:var(--accent)}
+
+.prlist{display:flex; flex-direction:column}
+.prrow{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line-soft)}
+.prrow:last-child{border-bottom:0}
+.prmedal{width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:var(--gold-soft); color:var(--gold); border:1px solid var(--gold-line); flex:none}
+.prmedal svg{width:15px;height:15px;fill:currentColor}
+.prmain{flex:1; min-width:0}
+.prmain .nm{font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.prmain .sub{font-size:11px; color:var(--muted)}
+.prval{font-family:"IBM Plex Mono",monospace; font-size:13px; font-weight:600; text-align:right; flex:none; font-variant-numeric:tabular-nums}
+.prval small{display:block; font-size:10px; font-weight:500; color:var(--muted)}
+
+.selwrap{position:relative}
+select.exsel{width:100%; height:40px; padding:0 34px 0 12px; border-radius:9px; border:1px solid var(--line); background:var(--panel); font-size:14px; font-weight:600; -webkit-appearance:none; appearance:none}
+.selwrap::after{content:""; position:absolute; right:13px; top:50%; width:7px; height:7px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); transform:translateY(-70%) rotate(45deg); pointer-events:none}
+
+/* ── Data view ──────────────────────────────────────────────────────── */
+.seg{display:grid; grid-template-columns:1fr 1fr; gap:3px; padding:3px; background:var(--sunken); border-radius:10px; border:1px solid var(--line)}
+.seg button{height:34px; border-radius:7px; font-size:13.5px; font-weight:600; color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel); color:var(--ink); box-shadow:var(--shadow)}
+.rowitem{display:flex; align-items:center; gap:12px; padding:13px 0; border-bottom:1px solid var(--line-soft)}
+.rowitem:last-child{border-bottom:0}
+.rowitem .t{flex:1}
+.rowitem .t b{display:block; font-size:14px; font-weight:600}
+.rowitem .t span{font-size:11.5px; color:var(--muted); line-height:1.4; display:block; margin-top:2px}
+.ta{width:100%; min-height:110px; border-radius:10px; border:1px solid var(--line); background:var(--sunken); padding:10px; font-family:"IBM Plex Mono",monospace; font-size:11.5px; line-height:1.5; resize:vertical}
+.ta:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+.steps{counter-reset:s; display:flex; flex-direction:column; gap:9px; margin:0; padding:0; list-style:none}
+.steps li{counter-increment:s; display:flex; gap:10px; font-size:13px; color:var(--ink-2)}
+.steps li::before{content:counter(s); flex:none; width:20px; height:20px; border-radius:999px; background:var(--accent-soft); color:var(--accent); font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600; display:grid; place-items:center; margin-top:1px}
+.note{font-size:11.5px; color:var(--muted); line-height:1.5; margin:8px 0 0}
+.toast{position:fixed; z-index:60; bottom:96px; left:50%; transform:translate(-50%,14px); background:var(--ink); color:var(--bg); font-size:13px; font-weight:600; padding:10px 16px; border-radius:999px; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s}
+.toast.on{opacity:1; transform:translate(-50%,0)}
+</style>
+<style>
+  html{background:var(--surround)}
+  body{min-height:100dvh; overscroll-behavior-y:none}
+  .topbar{padding-top:env(safe-area-inset-top, 0px)}
+  main{overscroll-behavior:contain}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="wordmark">TONNAGE<span class="dot">.</span></div>
+      <div class="view-label" id="viewLabel">Log</div>
+    </div>
+  </header>
+  <main id="main">
+    <div class="view on" id="v-log"></div>
+    <div class="view" id="v-cal"></div>
+    <div class="view" id="v-stats"></div>
+    <div class="view" id="v-data"></div>
+  </main>
+  <nav class="tabbar" id="tabbar" role="tablist"></nav>
+</div>
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-grab"></div>
+  <div class="sheet-head"><div class="sheet-title" id="sheetTitle"></div><button class="sheet-close" id="sheetClose">Done</button></div>
+  <div id="sheetExtra"></div>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ═════ Constants ═════════════════════════════════════════════════════ */
+const LS = "tonnage.v1";
+const GROUPS = ["Legs","Back","Chest","Shoulders","Arms","Core"];
+const CATALOG = {
+  "Back Squat":"Legs","Front Squat":"Legs","Deadlift":"Legs","Romanian Deadlift":"Legs",
+  "Leg Press":"Legs","Bulgarian Split Squat":"Legs","Walking Lunge":"Legs","Hack Squat":"Legs",
+  "Seated Leg Curl":"Legs","Lying Leg Curl":"Legs","Leg Extension":"Legs","Standing Calf Raise":"Legs",
+  "Seated Calf Raise":"Legs","Hip Thrust":"Legs","Good Morning":"Legs",
+  "Barbell Row":"Back","Pendlay Row":"Back","Chest-Supported Row":"Back","Seated Cable Row":"Back",
+  "Single-Arm Dumbbell Row":"Back","Lat Pulldown":"Back","Pull-Up":"Back","Chin-Up":"Back",
+  "Straight-Arm Pulldown":"Back","T-Bar Row":"Back","Rack Pull":"Back","Face Pull":"Back",
+  "Bench Press":"Chest","Incline Barbell Press":"Chest","Incline Dumbbell Press":"Chest",
+  "Flat Dumbbell Press":"Chest","Cable Fly":"Chest","Pec Deck":"Chest","Dip":"Chest","Push-Up":"Chest",
+  "Overhead Press":"Shoulders","Seated Dumbbell Press":"Shoulders","Arnold Press":"Shoulders",
+  "Lateral Raise":"Shoulders","Cable Lateral Raise":"Shoulders","Rear Delt Fly":"Shoulders","Upright Row":"Shoulders",
+  "Barbell Curl":"Arms","Dumbbell Curl":"Arms","Incline Dumbbell Curl":"Arms","Hammer Curl":"Arms",
+  "Preacher Curl":"Arms","Cable Curl":"Arms","Triceps Pushdown":"Arms","Overhead Triceps Extension":"Arms",
+  "Skullcrusher":"Arms","Close-Grip Bench Press":"Arms",
+  "Hanging Leg Raise":"Core","Cable Crunch":"Core","Ab Wheel":"Core","Plank":"Core","Back Extension":"Core"
+};
+const ICONS = {
+  log:'<path d="M4 4h13l3 3v13H4z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  stats:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  data:'<path d="M12 3v13"/><path d="M8 12l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>'
+};
+const STAR = '<svg viewBox="0 0 24 24"><path d="M12 2.6l2.6 6.1 6.6.6-5 4.3 1.5 6.4L12 16.6 6.3 20l1.5-6.4-5-4.3 6.6-.6z"/></svg>';
+
+/* ═════ Date helpers ══════════════════════════════════════════════════ */
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parseYmd = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const todayKey = () => ymd(new Date());
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const MON = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MON3 = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAY3 = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+function weekStartKey(key){ const d = parseYmd(key); const dow = (d.getDay()+6)%7; return ymd(addDays(d,-dow)); }
+function shortDate(key){ const d = parseYmd(key); return MON3[d.getMonth()]+" "+d.getDate(); }
+function longDate(key){ const d = parseYmd(key); return DAY3[d.getDay()]+", "+MON3[d.getMonth()]+" "+d.getDate(); }
+
+/* ═════ Number helpers ════════════════════════════════════════════════ */
+const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+const fmt = n => Math.round(n).toLocaleString("en-US");
+function fmtK(n){
+  if (n >= 1000000) return (n/1000000).toFixed(n>=10000000?0:1).replace(/\.0$/,"")+"M";
+  if (n >= 10000) return Math.round(n/1000)+"k";
+  if (n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/,"")+"k";
+  return String(Math.round(n));
+}
+const e1rm = (w,r) => r <= 1 ? w : w * (1 + r/30);
+const roundHalf = n => Math.round(n*2)/2;
+
+/* ═════ State ═════════════════════════════════════════════════════════ */
+let S = null;
+let mem = null; // fallback when localStorage is unavailable
+
+function blank(){ return { v:1, units:"lb", demo:false, days:{}, custom:{} }; }
+
+function load(){
+  try {
+    const raw = localStorage.getItem(LS);
+    if (raw) { const p = JSON.parse(raw); if (p && p.days) return p; }
+  } catch(e){}
+  return null;
+}
+function save(){
+  try { localStorage.setItem(LS, JSON.stringify(S)); }
+  catch(e){ mem = S; }
+}
+
+function groupOf(name){ return (S.custom && S.custom[name]) || CATALOG[name] || "Other"; }
+function day(key){ return S.days[key]; }
+function ensureDay(key){ if(!S.days[key]) S.days[key] = { deload:false, ex:[] }; return S.days[key]; }
+function pruneDay(key){
+  const d = S.days[key];
+  if (!d) return;
+  const hasSets = (d.ex||[]).some(e => (e.sets||[]).some(s => s.w>0 || s.r>0));
+  if (!hasSets && !(d.ex||[]).length && !d.deload) delete S.days[key];
+}
+
+/* ═════ Derived: volume, PRs ══════════════════════════════════════════ */
+function setVolume(s){ return (s.w>0 && s.r>0) ? s.w*s.r : 0; }
+function exVolume(ex){ return (ex.sets||[]).reduce((a,s)=>a+setVolume(s), 0); }
+function dayVolume(key){ const d = S.days[key]; return d ? (d.ex||[]).reduce((a,e)=>a+exVolume(e), 0) : 0; }
+function daySets(key){ const d = S.days[key]; return d ? (d.ex||[]).reduce((a,e)=>a+(e.sets||[]).filter(s=>s.w>0&&s.r>0).length, 0) : 0; }
+
+/* Walks every set in chronological order so a record is judged against
+   what was true before it, not against the all-time best. */
+let PR = { byDate:{}, bySet:{}, all:[] };
+function computePRs(){
+  const byDate = {}, bySet = {}, all = [];
+  const best = {};
+  for (const key of Object.keys(S.days).sort()) {
+    const d = S.days[key];
+    (d.ex||[]).forEach((ex, ei) => {
+      (ex.sets||[]).forEach((st, si) => {
+        if (!(st.w>0 && st.r>0)) return;
+        const e = e1rm(st.w, st.r);
+        const b = best[ex.name];
+        if (!b) { best[ex.name] = { w:st.w, e:e }; return; } // first time is a baseline, not a record
+        let kind = null;
+        if (st.w > b.w + 1e-9) kind = "weight";
+        if (e > b.e + 1e-6) kind = kind ? "both" : "e1rm";
+        if (kind) {
+          const rec = { date:key, name:ex.name, kind, w:st.w, r:st.r, e:e, prev: kind==="weight" ? b.w : b.e };
+          (byDate[key] = byDate[key] || []).push(rec);
+          bySet[key+"|"+ei+"|"+si] = rec;
+          all.push(rec);
+        }
+        b.w = Math.max(b.w, st.w); b.e = Math.max(b.e, e);
+      });
+    });
+  }
+  PR = { byDate, bySet, all };
+}
+
+function weeklySeries(n){
+  const out = [];
+  const d0 = parseYmd(weekStartKey(todayKey()));
+  for (let i = n-1; i >= 0; i--) {
+    const ws = ymd(addDays(d0, -7*i));
+    out.push({ week:ws, vol:0, sets:0, sessions:0, deload:false });
+  }
+  const idx = {}; out.forEach((o,i)=>idx[o.week]=i);
+  for (const key of Object.keys(S.days)) {
+    const i = idx[weekStartKey(key)];
+    if (i === undefined) continue;
+    const v = dayVolume(key), s = daySets(key);
+    out[i].vol += v; out[i].sets += s;
+    if (s > 0) out[i].sessions++;
+    if (S.days[key].deload) out[i].deload = true;
+  }
+  return out;
+}
+
+function groupBreakdown(weekKey){
+  const acc = {};
+  for (const key of Object.keys(S.days)) {
+    if (weekStartKey(key) !== weekKey) continue;
+    for (const ex of (S.days[key].ex||[])) {
+      const g = groupOf(ex.name);
+      acc[g] = (acc[g]||0) + exVolume(ex);
+    }
+  }
+  return Object.entries(acc).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+}
+
+function knownExercises(){
+  const seen = new Map();
+  for (const key of Object.keys(S.days).sort().reverse())
+    for (const ex of (S.days[key].ex||[]))
+      if (!seen.has(ex.name)) seen.set(ex.name, key);
+  return seen;
+}
+
+function lastPerformance(name, beforeKey){
+  const keys = Object.keys(S.days).filter(k => k < beforeKey).sort().reverse();
+  for (const k of keys) {
+    for (const ex of (S.days[k].ex||[])) {
+      if (ex.name !== name) continue;
+      const valid = (ex.sets||[]).filter(s=>s.w>0&&s.r>0);
+      if (!valid.length) continue;
+      const top = valid.reduce((a,b)=> e1rm(b.w,b.r) > e1rm(a.w,a.r) ? b : a);
+      return { key:k, top, count:valid.length };
+    }
+  }
+  return null;
+}
+
+function exerciseHistory(name){
+  const out = [];
+  for (const key of Object.keys(S.days).sort()) {
+    for (const ex of (S.days[key].ex||[])) {
+      if (ex.name !== name) continue;
+      const valid = (ex.sets||[]).filter(s=>s.w>0&&s.r>0);
+      if (!valid.length) continue;
+      const top = valid.reduce((a,b)=> e1rm(b.w,b.r) > e1rm(a.w,a.r) ? b : a);
+      out.push({ key, e:e1rm(top.w, top.r), w:top.w, r:top.r, vol:exVolume(ex) });
+    }
+  }
+  return out;
+}
+
+/* ═════ Demo data ═════════════════════════════════════════════════════ */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+function buildDemo(){
+  const rnd = mulberry32(20260909);
+  const st = blank(); st.demo = true;
+  // name, start weight, reps, sets, weekly increment
+  const PROGRAM = [
+    { dow:0, lifts:[["Back Squat",245,5,4,5],["Romanian Deadlift",185,8,3,5],["Leg Press",360,10,3,10],["Seated Leg Curl",110,12,3,5]] },
+    { dow:1, lifts:[["Bench Press",185,5,4,5],["Barbell Row",155,8,4,5],["Overhead Press",105,8,3,2.5],["Lat Pulldown",140,10,3,5]] },
+    { dow:3, lifts:[["Deadlift",315,3,3,10],["Front Squat",165,6,3,5],["Bulgarian Split Squat",50,10,3,2.5],["Standing Calf Raise",180,12,4,5]] },
+    { dow:4, lifts:[["Incline Dumbbell Press",70,8,4,2.5],["Pull-Up",25,8,4,2.5],["Cable Fly",40,12,3,2.5],["Barbell Curl",75,10,3,2.5],["Triceps Pushdown",60,12,3,5]] }
+  ];
+  const WEEKS = 9, DELOAD_WEEK = 6;
+  const thisMon = parseYmd(weekStartKey(todayKey()));
+  const start = addDays(thisMon, -7*(WEEKS-1));
+  const today = todayKey();
+
+  for (let w = 0; w < WEEKS; w++) {
+    const isDeload = (w === DELOAD_WEEK);
+    if (isDeload) {
+      for (let i = 0; i < 7; i++) {
+        const k = ymd(addDays(start, 7*w + i));
+        if (k <= today) st.days[k] = { deload:true, ex:[] };
+      }
+    }
+    for (const sess of PROGRAM) {
+      const key = ymd(addDays(start, 7*w + sess.dow));
+      if (key > today) continue;
+      const d = st.days[key] || (st.days[key] = { deload:isDeload, ex:[] });
+      d.deload = isDeload;
+      for (const [name, base, reps, nsets, inc] of sess.lifts) {
+        // occasional stall week keeps the progression from being a clean ramp
+        const stalls = Math.floor(w / 4);
+        const load = base + inc * Math.max(0, w - stalls);
+        const top = isDeload ? Math.round(load * 0.62 / 5) * 5 : load;
+        const sets = [];
+        const count = isDeload ? 2 : nsets;
+        for (let s = 0; s < count; s++) {
+          const backoff = s === 0 ? 0 : Math.round(load * 0.05 * s / 5) * 5;
+          const wt = Math.max(5, top - backoff);
+          const r = reps + (s > 0 && rnd() > 0.55 ? 1 : 0);
+          let rpe = isDeload ? 6 + (rnd()>0.6?0.5:0) : 7 + s*0.4 + (w*0.06) + (rnd()*0.6 - 0.3);
+          sets.push({ w:wt, r:r, rpe:roundHalf(Math.min(10, Math.max(6, rpe))) });
+        }
+        d.ex.push({ name, sets });
+      }
+    }
+  }
+  return st;
+}
+
+/* ═════ Boot ══════════════════════════════════════════════════════════ */
+S = load() || buildDemo();
+if (!S.custom) S.custom = {};
+if (!S.units) S.units = "lb";
+computePRs();
+save();
+
+let tab = "log";
+let logDate = todayKey();
+// The sample program has rest days, so open the demo on a day that has a session in it.
+if (S.demo) {
+  const lastSession = Object.keys(S.days).filter(k => (S.days[k].ex||[]).length).sort().pop();
+  if (lastSession) logDate = lastSession;
+}
+let calSel = null;
+let calScrolled = false;
+let statWeek = null;
+let statEx = null;
+const U = () => S.units;
+
+/* ═════ Tiny DOM helpers ══════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+let toastTimer = null;
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove("on"), 1900);
+}
+
+/* ═════ Sheet ═════════════════════════════════════════════════════════ */
+let sheetOnClose = null;
+function openSheet(title, bodyHTML, extraHTML){
+  $("sheetTitle").textContent = title;
+  $("sheetExtra").innerHTML = extraHTML || "";
+  $("sheetBody").innerHTML = bodyHTML;
+  $("sheet").classList.add("on"); $("scrim").classList.add("on");
+}
+function closeSheet(){
+  $("sheet").classList.remove("on"); $("scrim").classList.remove("on");
+  if (sheetOnClose) { const f = sheetOnClose; sheetOnClose = null; f(); }
+}
+$("scrim").addEventListener("click", closeSheet);
+$("sheetClose").addEventListener("click", closeSheet);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+
+/* ═════ Tab bar ═══════════════════════════════════════════════════════ */
+const TABS = [["log","Log",ICONS.log],["cal","Calendar",ICONS.cal],["stats","Stats",ICONS.stats],["data","Data",ICONS.data]];
+$("tabbar").innerHTML = TABS.map(([id,label,d]) =>
+  `<button class="tab" role="tab" data-tab="${id}" aria-selected="${id===tab}">
+     <svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg><span>${label}</span></button>`).join("");
+$("tabbar").addEventListener("click", e => {
+  const b = e.target.closest("[data-tab]"); if (!b) return;
+  go(b.dataset.tab);
+});
+function go(id){
+  tab = id;
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.tab === id)));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-"+id));
+  $("viewLabel").textContent = TABS.find(t => t[0] === id)[1];
+  $("main").scrollTop = 0;
+  render();
+  if (id === "cal") scrollCalendarToNow();
+}
+
+/* ═════ Demo banner ═══════════════════════════════════════════════════ */
+function bannerHTML(){
+  if (!S.demo) return "";
+  return `<div class="banner">
+    <div><b>Sample data.</b> Nine weeks of a made-up program so the charts and calendar have something to show.</div>
+    <button data-act="wipe-demo">Start fresh</button></div>`;
+}
+
+/* ═════ View: Log ═════════════════════════════════════════════════════ */
+function renderLog(){
+  const key = logDate;
+  const d = day(key);
+  const vol = dayVolume(key), sets = daySets(key);
+  const exs = d ? (d.ex||[]) : [];
+  const isToday = key === todayKey();
+  const deload = !!(d && d.deload);
+  const prCount = (PR.byDate[key]||[]).length;
+
+  let h = bannerHTML();
+
+  h += `<div class="datenav">
+    <button class="arrow" data-act="date" data-n="-1" aria-label="Previous day"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="dwrap">
+      <div class="dbig">${isToday ? "Today" : longDate(key)}</div>
+      <div class="dsub">${isToday ? longDate(key) : (key === ymd(addDays(new Date(),-1)) ? "Yesterday" : parseYmd(key).getFullYear())}</div>
+    </div>
+    <button class="arrow" data-act="date" data-n="1" aria-label="Next day"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+  </div>`;
+
+  h += `<div class="daystats">
+    <div><div class="k">Volume</div><div class="v" id="dsVol">${fmt(vol)} <small>${U()}</small></div></div>
+    <div><div class="k">Sets</div><div class="v" id="dsSets">${sets}</div></div>
+    <div><div class="k">${prCount === 1 ? "Record" : "Records"}</div><div class="v" style="${prCount?"color:var(--gold)":""}">${prCount}</div></div>
+  </div>`;
+
+  h += `<div class="deload-row">
+    <button class="toggle" data-act="deload" aria-pressed="${deload}">
+      <span class="sw"></span>
+      <span class="tl">Deload day<em>${deload ? "Marked green on the calendar" : "Tap to mark this day a deload"}</em></span>
+    </button>
+  </div>`;
+
+  if (!exs.length) {
+    const prev = Object.keys(S.days).filter(k => k < key && (S.days[k].ex||[]).length).sort().pop();
+    h += `<div class="empty">
+      <h3>Nothing logged yet</h3>
+      <p>Add a lift to start the session${prev ? ", or bring back what you did on "+shortDate(prev) : ""}.</p>
+      <div class="row">
+        <button class="btn primary" data-act="pick">Add exercise</button>
+        ${prev ? `<button class="btn" data-act="repeat" data-k="${prev}">Repeat ${shortDate(prev)}</button>` : ""}
+      </div></div>`;
+  } else {
+    h += `<div class="exlist">`;
+    exs.forEach((ex, ei) => {
+      const last = lastPerformance(ex.name, key);
+      h += `<div class="excard" data-ei="${ei}">
+        <div class="exhead">
+          <div><div class="exname">${esc(ex.name)}</div><div class="exgroup">${esc(groupOf(ex.name))}</div></div>
+          <button class="exkill" data-act="rmex" data-ei="${ei}" aria-label="Remove ${esc(ex.name)}"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M8 7l1 12h6l1-12"/></svg></button>
+        </div>`;
+      if (last) h += `<div class="exlast">Last · ${shortDate(last.key)}<b>${fmt(last.top.w)} × ${last.top.r}${last.top.rpe ? " @"+last.top.rpe : ""}</b></div>`;
+      h += `<div class="setgrid head"><span></span><span class="r">Weight</span><span class="r">Reps</span><span class="r">RPE</span><span></span></div>`;
+      (ex.sets||[]).forEach((st, si) => {
+        const pr = PR.bySet[key+"|"+ei+"|"+si];
+        h += `<div class="setgrid setrow">
+          <div class="setno">${si+1}</div>
+          <input class="inp" type="text" inputmode="decimal" data-f="w" data-ei="${ei}" data-si="${si}" value="${st.w||""}" placeholder="—" aria-label="Set ${si+1} weight">
+          <input class="inp" type="text" inputmode="numeric" data-f="r" data-ei="${ei}" data-si="${si}" value="${st.r||""}" placeholder="—" aria-label="Set ${si+1} reps">
+          <select class="inp" data-f="rpe" data-ei="${ei}" data-si="${si}" aria-label="Set ${si+1} RPE">${rpeOptions(st.rpe)}</select>
+          ${pr ? `<div class="prstar" title="${pr.kind==="weight"?"Heaviest ever":"Best estimated 1RM"}">${STAR}</div>`
+               : `<button class="setkill" data-act="rmset" data-ei="${ei}" data-si="${si}" aria-label="Remove set ${si+1}">×</button>`}
+        </div>`;
+      });
+      h += `<div class="exfoot">
+        <button class="addset" data-act="addset" data-ei="${ei}">+ Set</button>
+        <span class="exvol" data-vol="${ei}">${fmt(exVolume(ex))} ${U()}</span>
+      </div></div>`;
+    });
+    h += `</div><div class="pad" style="padding-bottom:8px"><button class="btn dashed wide" data-act="pick">+ Add exercise</button></div>`;
+  }
+  $("v-log").innerHTML = h;
+}
+function rpeOptions(v){
+  let o = `<option value=""${!v?" selected":""}>—</option>`;
+  for (let r = 6; r <= 10; r += 0.5) o += `<option value="${r}"${v==r?" selected":""}>${r}</option>`;
+  return o;
+}
+
+/* ═════ View: Calendar ════════════════════════════════════════════════ */
+function volumeLevels(){
+  const vals = Object.keys(S.days).map(dayVolume).filter(v => v > 0).sort((a,b)=>a-b);
+  if (!vals.length) return [0,0,0];
+  const q = p => vals[Math.min(vals.length-1, Math.floor(vals.length*p))];
+  return [q(0.25), q(0.55), q(0.82)];
+}
+function levelOf(v, L){
+  if (v <= 0) return 0;
+  if (v <= L[0]) return 1;
+  if (v <= L[1]) return 2;
+  if (v <= L[2]) return 3;
+  return 4;
+}
+function renderCalendar(){
+  const L = volumeLevels();
+  const today = todayKey();
+  const keys = Object.keys(S.days).sort();
+  const now = new Date();
+  let first = keys.length ? parseYmd(keys[0]) : new Date(now.getFullYear(), now.getMonth(), 1);
+  const floor = new Date(now.getFullYear(), now.getMonth()-2, 1);
+  if (first > floor) first = floor;
+  const startM = new Date(first.getFullYear(), first.getMonth(), 1);
+  const endM = new Date(now.getFullYear(), now.getMonth()+1, 1);
+
+  let h = bannerHTML();
+  h += `<div class="legend">
+    <span class="grp">Volume <span class="ramp"><i style="background:var(--fill-1)"></i><i style="background:var(--fill-2)"></i><i style="background:var(--fill-3)"></i><i style="background:var(--fill-4)"></i></span></span>
+    <span class="grp"><span class="sw dot" style="background:var(--gold)"></span>PR</span>
+    <span class="grp"><span class="sw" style="background:var(--green-soft); border:1.5px solid var(--green)"></span>Deload</span>
+  </div>`;
+  h += `<div class="dowrow">${["M","T","W","T","F","S","S"].map(d=>`<span>${d}</span>`).join("")}</div>`;
+
+  for (let m = new Date(startM); m <= endM; m.setMonth(m.getMonth()+1)) {
+    const y = m.getFullYear(), mo = m.getMonth();
+    const dim = new Date(y, mo+1, 0).getDate();
+    const lead = (new Date(y, mo, 1).getDay()+6)%7;
+    let mvol = 0;
+    let cells = "";
+    for (let i = 0; i < lead; i++) cells += `<div class="cell blank"></div>`;
+    for (let dnum = 1; dnum <= dim; dnum++) {
+      const k = y+"-"+pad(mo+1)+"-"+pad(dnum);
+      const v = dayVolume(k); mvol += v;
+      const rec = S.days[k];
+      const cls = ["cell"];
+      if (rec && rec.deload) cls.push("deload"); else if (v > 0) cls.push("lvl"+levelOf(v, L));
+      if (k === today) cls.push("today");
+      if (k === calSel) cls.push("sel");
+      if (k > today) cls.push("future");
+      cells += `<button class="${cls.join(" ")}" data-act="day" data-k="${k}" aria-label="${longDate(k)}${v?", "+fmt(v)+" "+U():""}">${dnum}${PR.byDate[k]?'<i class="pr"></i>':""}</button>`;
+    }
+    h += `<div class="mblock" data-m="${y}-${pad(mo+1)}">
+      <div class="mhead"><div class="mname">${MON[mo]} ${y}</div><div class="mvol">${mvol ? fmtK(mvol)+" "+U() : "—"}</div></div>
+      <div class="mgrid">${cells}</div></div>`;
+  }
+  $("v-cal").innerHTML = h;
+}
+function scrollCalendarToNow(){
+  requestAnimationFrame(() => {
+    const now = new Date();
+    const m = $("main");
+    const el = $("v-cal").querySelector(`[data-m="${now.getFullYear()}-${pad(now.getMonth()+1)}"]`);
+    if (!el) return;
+    m.scrollTop += el.getBoundingClientRect().top - m.getBoundingClientRect().top - 38;
+  });
+}
+
+function openDaySheet(key){
+  const d = day(key);
+  const vol = dayVolume(key), sets = daySets(key);
+  const prs = PR.byDate[key] || [];
+  let b = `<div class="dd-stats">
+    <span class="chip blue">${fmt(vol)} ${U()}</span>
+    <span class="chip">${sets} ${sets===1?"set":"sets"}</span>
+    ${prs.length ? `<span class="chip gold">${prs.length} PR${prs.length>1?"s":""}</span>` : ""}
+    ${d && d.deload ? `<span class="chip green">Deload</span>` : ""}
+  </div>`;
+  const exs = d ? (d.ex||[]) : [];
+  if (!exs.length) {
+    b += `<p class="note" style="margin-bottom:14px">No sets logged on this day.</p>`;
+  } else {
+    exs.forEach((ex, ei) => {
+      b += `<div class="dd-ex"><div class="dd-exname">${esc(ex.name)}</div><div class="dd-sets">`;
+      (ex.sets||[]).forEach((st, si) => {
+        if (!(st.w>0 && st.r>0)) return;
+        const isPr = !!PR.bySet[key+"|"+ei+"|"+si];
+        b += `<span class="dd-set${isPr?" pr":""}">${fmt(st.w)}×${st.r}${st.rpe?" @"+st.rpe:""}${isPr?" ★":""}</span>`;
+      });
+      b += `</div></div>`;
+    });
+  }
+  b += `<div style="display:flex; gap:8px; margin-top:16px">
+    <button class="btn primary" style="flex:1" data-act="editday" data-k="${key}">Open in Log</button>
+    <button class="btn" data-act="deload-k" data-k="${key}">${d && d.deload ? "Unmark deload" : "Mark deload"}</button>
+  </div>`;
+  openSheet(longDate(key) + " · " + parseYmd(key).getFullYear(), b);
+}
+
+/* ═════ Charts ════════════════════════════════════════════════════════ */
+function volumeChart(series, selIdx){
+  const W = 340, H = 168, L = 36, R = 4, T = 10, B = 26;
+  const max = Math.max(1, ...series.map(s=>s.vol));
+  const nice = Math.ceil(max / 5000) * 5000 || max;
+  const plotW = W - L - R, plotH = H - T - B;
+  const slot = plotW / series.length, bw = Math.max(6, slot - 4);
+  const y = v => T + plotH - (v / nice) * plotH;
+  let g = "";
+  for (const f of [0, 0.5, 1]) {
+    const yy = y(nice * f);
+    g += `<line class="grid" x1="${L}" x2="${W-R}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}"/>`;
+    g += `<text class="axl" x="${L-6}" y="${(yy+3.4).toFixed(1)}" text-anchor="end">${f===0?"0":fmtK(nice*f)}</text>`;
+  }
+  let bars = "", labels = "", hits = "";
+  series.forEach((s, i) => {
+    const x = L + i*slot + (slot-bw)/2;
+    const hgt = Math.max(s.vol > 0 ? 3 : 0, plotH - (y(s.vol) - T));
+    const yy = T + plotH - hgt;
+    if (hgt > 0) bars += `<rect class="bar${i===selIdx?" on":""}" x="${x.toFixed(1)}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${hgt.toFixed(1)}" rx="4"/>`;
+    if (s.deload) bars += `<circle cx="${(x+bw/2).toFixed(1)}" cy="${(T+plotH+7).toFixed(1)}" r="2.6" fill="var(--green)"/>`;
+    if (i % 3 === 0 || i === series.length-1)
+      labels += `<text class="axl" x="${(x+bw/2).toFixed(1)}" y="${H-9}" text-anchor="middle">${shortDate(s.week)}</text>`;
+    hits += `<rect class="hit" data-bar="${i}" x="${(L+i*slot).toFixed(1)}" y="${T}" width="${slot.toFixed(1)}" height="${plotH}"/>`;
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly training volume, last ${series.length} weeks">${g}${bars}${labels}${hits}</svg>`;
+}
+
+function progressChart(hist){
+  const W = 340, H = 168, L = 36, R = 10, T = 12, B = 26;
+  if (hist.length < 2) return `<p class="note" style="text-align:center; padding:34px 0">Log this lift on two different days and the trend shows up here.</p>`;
+  const plotW = W - L - R, plotH = H - T - B;
+  const vals = hist.map(p=>p.e);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const padv = Math.max(5, (hi-lo) * 0.25); lo = Math.max(0, lo - padv); hi = hi + padv;
+  const t0 = parseYmd(hist[0].key).getTime(), t1 = parseYmd(hist[hist.length-1].key).getTime();
+  const span = Math.max(1, t1 - t0);
+  const x = k => L + ((parseYmd(k).getTime() - t0) / span) * plotW;
+  const y = v => T + plotH - ((v - lo) / (hi - lo)) * plotH;
+  let g = "";
+  for (const f of [0, 0.5, 1]) {
+    const v = lo + (hi-lo)*f, yy = y(v);
+    g += `<line class="grid" x1="${L}" x2="${W-R}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}"/>`;
+    g += `<text class="axl" x="${L-6}" y="${(yy+3.4).toFixed(1)}" text-anchor="end">${Math.round(v)}</text>`;
+  }
+  const pts = hist.map(p => `${x(p.key).toFixed(1)},${y(p.e).toFixed(1)}`);
+  const area = `M${L},${T+plotH} L${pts.join(" L")} L${x(hist[hist.length-1].key).toFixed(1)},${T+plotH} Z`;
+  const last = hist[hist.length-1];
+  let dots = hist.map(p => `<circle class="pt" cx="${x(p.key).toFixed(1)}" cy="${y(p.e).toFixed(1)}" r="${p===last?4.5:2.6}"/>`).join("");
+  const lx = x(last.key), ly = y(last.e);
+  const lbl = `<text class="lbl" x="${(lx - 6).toFixed(1)}" y="${(ly - 9).toFixed(1)}" text-anchor="end">${Math.round(last.e)} ${U()}</text>`;
+  const xlbl = `<text class="axl" x="${L}" y="${H-9}" text-anchor="start">${shortDate(hist[0].key)}</text>
+                <text class="axl" x="${W-R}" y="${H-9}" text-anchor="end">${shortDate(last.key)}</text>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Estimated one-rep max over time">
+    ${g}<path class="ar" d="${area}"/><polyline class="ln" points="${pts.join(" ")}"/>${dots}${lbl}${xlbl}</svg>`;
+}
+
+/* ═════ View: Stats ═══════════════════════════════════════════════════ */
+function renderStats(){
+  const series = weeklySeries(12);
+  if (statWeek === null) statWeek = series.length - 1;
+  statWeek = Math.min(statWeek, series.length - 1);
+  const cur = series[series.length-1], prev = series[series.length-2] || { vol:0, sets:0, sessions:0 };
+  const sel = series[statWeek];
+
+  const known = [...knownExercises().keys()].sort();
+  if (!statEx || !known.includes(statEx)) statEx = known[0] || null;
+
+  let h = bannerHTML();
+  h += `<div class="pad" style="padding-top:16px">`;
+
+  // KPIs
+  const dv = cur.vol - prev.vol, dvp = prev.vol ? Math.round(dv/prev.vol*100) : null;
+  const ds = cur.sets - prev.sets;
+  h += `<div class="eyebrow" style="margin-bottom:9px">This week · from ${shortDate(cur.week)}</div>
+  <div class="kpis">
+    <div class="kpi"><div class="k">Volume</div><div class="v">${fmtK(cur.vol)} <small>${U()}</small></div>
+      ${deltaHTML(dvp === null ? 0 : dv, dvp !== null ? (dv>=0?"+":"")+dvp+"% vs last week" : "first week on record")}</div>
+    <div class="kpi"><div class="k">Working sets</div><div class="v">${cur.sets}</div>
+      ${deltaHTML(ds, (ds>=0?"+":"")+ds+" vs last week")}</div>
+  </div>`;
+
+  // Weekly volume chart
+  h += `<div class="sec">
+    <div class="sec-head"><div class="sec-title">Weekly volume</div><div class="eyebrow">12 weeks</div></div>
+    <div class="chartcard">
+      <div class="readout" id="volReadout">${volReadoutHTML(sel)}</div>
+      ${volumeChart(series, statWeek)}
+      <p class="note" style="padding:2px 0 4px">Tap a bar. Weight × reps, every working set. Green dot marks a deload week.</p>
+    </div></div>`;
+
+  // Muscle group split
+  const bd = groupBreakdown(sel.week);
+  const bdMax = bd.length ? bd[0][1] : 1;
+  h += `<div class="sec">
+    <div class="sec-head"><div class="sec-title">Where it went</div><div class="eyebrow">Week of ${shortDate(sel.week)}</div></div>
+    <div class="card" style="padding:14px 13px">`;
+  h += bd.length ? `<div class="mg">${bd.map(([g,v]) => `
+      <div class="mgrow"><div class="nm">${esc(g)}</div><div class="vl">${fmtK(v)} ${U()} · ${Math.round(v/bd.reduce((a,x)=>a+x[1],0)*100)}%</div>
+      <div class="track"><i style="width:${Math.max(3, v/bdMax*100).toFixed(1)}%"></i></div></div>`).join("")}</div>`
+    : `<p class="note" style="margin:0">Nothing logged that week.</p>`;
+  h += `</div></div>`;
+
+  // Exercise progress
+  h += `<div class="sec">
+    <div class="sec-head"><div class="sec-title">Strength trend</div><div class="eyebrow">Est. 1RM</div></div>`;
+  if (statEx) {
+    const hist = exerciseHistory(statEx);
+    h += `<div class="selwrap" style="margin-bottom:10px">
+      <select class="exsel" data-act="exsel">${known.map(n=>`<option value="${esc(n)}"${n===statEx?" selected":""}>${esc(n)}</option>`).join("")}</select></div>
+      <div class="chartcard">${progressChart(hist)}
+      <p class="note" style="padding:2px 0 4px">Epley estimate from your top set each session — weight × (1 + reps ÷ 30).</p></div>`;
+  } else {
+    h += `<div class="card" style="padding:18px"><p class="note" style="margin:0">Log a lift and its trend appears here.</p></div>`;
+  }
+  h += `</div>`;
+
+  // Recent PRs
+  const recent = PR.all.slice().reverse().slice(0, 12);
+  h += `<div class="sec">
+    <div class="sec-head"><div class="sec-title">Recent records</div><div class="eyebrow">${PR.all.length} all time</div></div>
+    <div class="card" style="padding:2px 13px 4px">`;
+  h += recent.length ? `<div class="prlist">${recent.map(p => `
+      <div class="prrow">
+        <div class="prmedal">${STAR}</div>
+        <div class="prmain"><div class="nm">${esc(p.name)}</div>
+          <div class="sub">${shortDate(p.date)} · ${p.kind === "weight" ? "heaviest ever" : p.kind === "both" ? "heaviest + best est. 1RM" : "best est. 1RM"}</div></div>
+        <div class="prval">${fmt(p.w)}×${p.r}<small>${Math.round(p.e)} ${U()} e1RM</small></div>
+      </div>`).join("")}</div>`
+    : `<p class="note" style="margin:14px 0">No records yet — they show up once you beat a lift you've done before.</p>`;
+  h += `</div></div></div>`;
+  $("v-stats").innerHTML = h;
+}
+function deltaHTML(d, label){
+  const cls = d > 0 ? "up" : d < 0 ? "down" : "flat";
+  const arrow = d > 0 ? "▲" : d < 0 ? "▼" : "–";
+  return `<div class="delta ${cls}">${arrow} ${esc(label)}</div>`;
+}
+function volReadoutHTML(s){
+  return `<span class="rw">Week of ${shortDate(s.week)}</span>
+    <span class="rv">${fmt(s.vol)} ${U()}</span>
+    <span class="rs">${s.sets} sets · ${s.sessions} ${s.sessions===1?"session":"sessions"}${s.deload?" · deload":""}</span>`;
+}
+
+/* ═════ View: Data ════════════════════════════════════════════════════ */
+let confirmArmed = null;
+function renderData(){
+  const nDays = Object.keys(S.days).length;
+  const nSets = Object.keys(S.days).reduce((a,k)=>a+daySets(k), 0);
+  let h = `<div class="pad" style="padding-top:16px">`;
+
+  h += `<div class="eyebrow" style="margin-bottom:9px">Units</div>
+    <div class="seg" role="group">
+      <button data-act="units" data-u="lb" aria-pressed="${U()==="lb"}">Pounds</button>
+      <button data-act="units" data-u="kg" aria-pressed="${U()==="kg"}">Kilograms</button>
+    </div>
+    <p class="note">Changes the label only. Numbers you already entered stay exactly as you typed them.</p>`;
+
+  h += `<div class="sec">
+    <div class="sec-head"><div class="sec-title">Put it on your home screen</div></div>
+    <div class="card" style="padding:14px 14px">
+      <ol class="steps">
+        <li>Open this page in Safari on your iPhone.</li>
+        <li>Tap the Share button (the square with the arrow).</li>
+        <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+      </ol>
+      <p class="note">Your log is stored in this browser on this device. Same phone, same browser, and it's there — including offline.</p>
+    </div></div>`;
+
+  h += `<div class="sec">
+    <div class="sec-head"><div class="sec-title">Backup</div><div class="eyebrow">${nDays} days · ${nSets} sets</div></div>
+    <div class="card" style="padding:4px 13px">
+      <div class="rowitem"><div class="t"><b>Copy backup</b><span>Puts your whole log on the clipboard as JSON. Paste it somewhere safe — Notes, an email to yourself, a file.</span></div>
+        <button class="btn" data-act="copy">Copy</button></div>
+      <div class="rowitem"><div class="t"><b>Restore</b><span>Paste a backup below and it replaces everything currently in the app.</span></div></div>
+    </div>
+    <textarea class="ta" id="restoreBox" placeholder='Paste a backup here, then tap Restore' spellcheck="false"></textarea>
+    <button class="btn wide" data-act="restore" style="margin-top:8px">Restore from clipboard text</button>
+  </div>`;
+
+  h += `<div class="sec">
+    <div class="sec-head"><div class="sec-title">Danger</div></div>
+    <div class="card" style="padding:4px 13px">`;
+  if (S.demo) h += `<div class="rowitem"><div class="t"><b>Clear the sample data</b><span>Wipes the nine demo weeks and leaves you an empty log.</span></div>
+      <button class="btn" data-act="wipe-demo">Start fresh</button></div>`;
+  h += `<div class="rowitem"><div class="t"><b>Delete everything</b><span>Every day, set and record. There is no undo, so copy a backup first.</span></div>
+      <button class="btn danger" data-act="wipe-all">${confirmArmed === "wipe-all" ? "Tap again" : "Delete"}</button></div>
+    </div></div>`;
+
+  h += `<p class="note" style="margin:22px 0 8px; text-align:center">Tonnage · records judged against what was true before them, not your all-time best.</p>`;
+  h += `</div>`;
+  $("v-data").innerHTML = h;
+}
+
+/* ═════ Render ════════════════════════════════════════════════════════ */
+function render(){
+  computePRs();
+  if (tab === "log") renderLog();
+  else if (tab === "cal") renderCalendar();
+  else if (tab === "stats") renderStats();
+  else renderData();
+}
+
+/* ═════ Exercise picker ═══════════════════════════════════════════════ */
+function openPicker(){
+  const extra = `<div class="searchwrap"><input class="search" id="pickSearch" type="text" placeholder="Search or type a new lift" autocomplete="off" spellcheck="false"></div>`;
+  openSheet("Add exercise", pickerListHTML(""), extra);
+  const inp = $("pickSearch");
+  inp.addEventListener("input", () => { $("sheetBody").innerHTML = pickerListHTML(inp.value); });
+  setTimeout(()=>inp.focus(), 220);
+}
+function pickerListHTML(q){
+  const term = q.trim().toLowerCase();
+  const mine = [...knownExercises().keys()];
+  const inMine = mine.filter(n => n.toLowerCase().includes(term));
+  const inCat = Object.keys(CATALOG).filter(n => n.toLowerCase().includes(term) && !mine.includes(n));
+  let h = "";
+  const exact = [...mine, ...Object.keys(CATALOG)].some(n => n.toLowerCase() === term);
+  if (term && !exact) {
+    const nice = q.trim().replace(/\s+/g," ");
+    h += `<div class="pickgroup">New</div>
+      <button class="pickrow create" data-act="addex" data-n="${esc(nice)}"><span class="nm">Create “${esc(nice)}”</span><span class="gp">Add</span></button>`;
+  }
+  if (inMine.length) h += `<div class="pickgroup">Your lifts</div>` + inMine.map(rowHTML).join("");
+  if (inCat.length) h += `<div class="pickgroup">Catalog</div>` + inCat.slice(0, 60).map(rowHTML).join("");
+  if (!h) h = `<p class="note" style="padding:20px 0; text-align:center">Nothing matches. Keep typing to create it.</p>`;
+  return h;
+}
+function rowHTML(n){
+  return `<button class="pickrow" data-act="addex" data-n="${esc(n)}"><span class="nm">${esc(n)}</span><span class="gp">${esc(groupOf(n))}</span></button>`;
+}
+
+/* ═════ Actions ═══════════════════════════════════════════════════════ */
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const a = el.dataset.act;
+
+  if (a === "date") { logDate = ymd(addDays(parseYmd(logDate), Number(el.dataset.n))); renderLog(); return; }
+
+  if (a === "deload" || a === "deload-k") {
+    const k = a === "deload" ? logDate : el.dataset.k;
+    const d = ensureDay(k); d.deload = !d.deload; pruneDay(k); save();
+    if (a === "deload-k") { closeSheet(); render(); } else renderLog();
+    return;
+  }
+
+  if (a === "pick") { openPicker(); return; }
+
+  if (a === "addex") {
+    const name = el.dataset.n;
+    const d = ensureDay(logDate);
+    const last = lastPerformance(name, logDate);
+    const seed = last ? { w:last.top.w, r:last.top.r, rpe:"" } : { w:"", r:"", rpe:"" };
+    d.ex.push({ name, sets:[ { ...seed } ] });
+    save(); closeSheet(); render();
+    setTimeout(() => {
+      const inp = $("v-log").querySelector(`[data-f="w"][data-ei="${d.ex.length-1}"]`);
+      if (inp) { inp.focus(); inp.select(); }
+    }, 260);
+    return;
+  }
+
+  if (a === "rmex") { const d = day(logDate); if (d) { d.ex.splice(Number(el.dataset.ei),1); pruneDay(logDate); save(); render(); } return; }
+
+  if (a === "addset") {
+    const d = day(logDate), ex = d.ex[Number(el.dataset.ei)];
+    const prev = ex.sets[ex.sets.length-1];
+    ex.sets.push(prev ? { w:prev.w, r:prev.r, rpe:prev.rpe } : { w:"", r:"", rpe:"" });
+    save(); render();
+    setTimeout(() => {
+      const inp = $("v-log").querySelector(`[data-f="w"][data-ei="${el.dataset.ei}"][data-si="${ex.sets.length-1}"]`);
+      if (inp) { inp.focus(); inp.select(); }
+    }, 20);
+    return;
+  }
+
+  if (a === "rmset") {
+    const d = day(logDate), ex = d.ex[Number(el.dataset.ei)];
+    ex.sets.splice(Number(el.dataset.si), 1);
+    if (!ex.sets.length) d.ex.splice(Number(el.dataset.ei), 1);
+    pruneDay(logDate); save(); render();
+    return;
+  }
+
+  if (a === "repeat") {
+    const src = S.days[el.dataset.k];
+    const d = ensureDay(logDate);
+    d.ex = (src.ex||[]).map(ex => ({ name:ex.name, sets:(ex.sets||[]).map(s => ({ w:s.w, r:s.r, rpe:s.rpe })) }));
+    save(); render(); toast("Copied " + shortDate(el.dataset.k));
+    return;
+  }
+
+  if (a === "day") { calSel = el.dataset.k; renderCalendar(); openDaySheet(el.dataset.k); return; }
+  if (a === "editday") { logDate = el.dataset.k; closeSheet(); go("log"); return; }
+
+  if (a === "units") { S.units = el.dataset.u; save(); render(); return; }
+
+  if (a === "copy") {
+    const json = JSON.stringify(S, null, 2);
+    const done = () => toast("Backup copied");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(json).then(done, () => fallbackCopy(json, done));
+    } else fallbackCopy(json, done);
+    return;
+  }
+
+  if (a === "restore") {
+    const box = $("restoreBox");
+    try {
+      const p = JSON.parse(box.value);
+      if (!p || typeof p !== "object" || !p.days) throw new Error("bad");
+      S = { v:1, units:p.units || "lb", demo:!!p.demo, days:p.days, custom:p.custom || {} };
+      save(); box.value = ""; render(); toast("Restored");
+    } catch(err) { toast("That doesn't look like a backup"); }
+    return;
+  }
+
+  if (a === "wipe-demo") { S = blank(); S.units = U(); save(); calSel = null; statWeek = null; statEx = null; render(); toast("Sample data cleared"); return; }
+
+  if (a === "wipe-all") {
+    if (confirmArmed !== "wipe-all") { confirmArmed = "wipe-all"; renderData(); setTimeout(()=>{ if(confirmArmed==="wipe-all"){confirmArmed=null; if(tab==="data") renderData();} }, 4000); return; }
+    confirmArmed = null; S = blank(); save(); calSel=null; statWeek=null; statEx=null; render(); toast("Everything deleted");
+    return;
+  }
+});
+function fallbackCopy(text, done){
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); done(); } catch(e){ toast("Couldn't copy — select the text and copy it manually"); }
+  document.body.removeChild(ta);
+}
+
+/* Set inputs: keep numbers live without blowing away focus. */
+document.addEventListener("input", e => {
+  const el = e.target.closest("[data-f]");
+  if (!el || !$("v-log").contains(el)) return;
+  const d = day(logDate); if (!d) return;
+  const ex = d.ex[Number(el.dataset.ei)]; if (!ex) return;
+  const st = ex.sets[Number(el.dataset.si)]; if (!st) return;
+  const f = el.dataset.f;
+  st[f] = f === "rpe" ? (el.value === "" ? "" : Number(el.value)) : num(el.value);
+  save();
+  const vEl = $("v-log").querySelector(`[data-vol="${el.dataset.ei}"]`);
+  if (vEl) vEl.textContent = fmt(exVolume(ex)) + " " + U();
+  const dv = $("dsVol"), dsS = $("dsSets");
+  if (dv) dv.innerHTML = fmt(dayVolume(logDate)) + ' <small>' + U() + '</small>';
+  if (dsS) dsS.textContent = daySets(logDate);
+});
+/* Commit on blur → full re-render so PR stars and "last time" refresh. */
+document.addEventListener("change", e => {
+  const el = e.target.closest("[data-f]");
+  if (el && $("v-log").contains(el)) { renderLog(); return; }
+  const sel = e.target.closest('[data-act="exsel"]');
+  if (sel) { statEx = sel.value; renderStats(); }
+});
+
+/* Volume chart: tap a bar. */
+document.addEventListener("pointerdown", e => {
+  const hit = e.target.closest("[data-bar]");
+  if (!hit) return;
+  statWeek = Number(hit.dataset.bar);
+  renderStats();
+});
+
+/* ═════ Go ════════════════════════════════════════════════════════════ */
+render();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("./sw.js").catch(function(){});
+  });
+}
+</script>
+</body>
+</html>

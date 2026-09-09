@@ -1,0 +1,15 @@
+{
+  "name": "Tonnage",
+  "short_name": "Tonnage",
+  "description": "A strength-training log: sets, reps and RPE, weekly volume, PRs and deloads on a calendar.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3F4F7",
+  "theme_color": "#1D5DB1",
+  "icons": [
+    { "src": "./icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
