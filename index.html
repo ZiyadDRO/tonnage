@@ -712,7 +712,7 @@ function syncLabel(){
   if (!syncOn()) return "Not connected";
   if (syncState === "busy") return "Syncing…";
   if (syncState === "err") return syncMsg;
-  if (syncState === "conflict") return "Two versions differ — pick one below";
+  if (syncState === "conflict") return "This device and GitHub both changed — choose which to keep";
   if (SY.lastSyncedAt) return "Backed up " + ago(SY.lastSyncedAt);
   return "Not backed up yet";
 }
@@ -793,6 +793,9 @@ async function syncOpen(){
     SY.sha = remote.sha;
     const rAt = remote.data.updatedAt || 0, lAt = S.updatedAt || 0, base = SY.lastAt || 0;
     if (S.demo) { adoptRemote(remote); return; }
+    // A device connecting for the first time with an empty log has nothing to
+    // lose, so take the repo's copy rather than calling it a conflict.
+    if (!SY.lastAt && summarize(S).sets === 0) { adoptRemote(remote); return; }
     if (rAt === lAt) { SY.lastSyncedAt = Date.now(); SY.lastAt = lAt; saveSync(); setSync("ok"); return; }
     if (lAt <= base && rAt > base) { adoptRemote(remote); return; }
     if (rAt <= base && lAt > base) { await doPush("catch up"); return; }
@@ -1237,8 +1240,9 @@ function renderData(){
   } else {
     h += `<div class="syncbar ${syncState}"><span class="sd"></span><span class="st"><b>${esc(syncHeadline())}</b>
         <span>${esc(syncLabel())}</span></span></div>
+      ${syncState === "conflict" ? `<button class="btn primary wide" data-act="resolve" style="margin-top:9px">Choose which version to keep</button>` : ""}
       <div style="display:flex; gap:8px; margin-top:9px">
-        <button class="btn" style="flex:1" data-act="syncnow">Back up now</button>
+        <button class="btn" style="flex:1" data-act="syncnow">${syncState === "conflict" ? "Check again" : "Back up now"}</button>
         <button class="btn danger" data-act="disconnect">${confirmArmed === "disc" ? "Tap again" : "Disconnect"}</button>
       </div>`;
     h += S.demo
@@ -1415,6 +1419,11 @@ document.addEventListener("click", e => {
   if (a === "gotodata") { go("data"); return; }
   if (a === "connect-open") { openConnect(); return; }
   if (a === "syncnow") { lastOpenSync = Date.now(); syncOpen(); return; }
+  if (a === "resolve") {
+    if (pendingRemote) showConflict(pendingRemote);
+    else { lastOpenSync = Date.now(); syncOpen(); }
+    return;
+  }
 
   if (a === "connect") {
     const repoRaw = ($("cfRepo").value || "").trim()
